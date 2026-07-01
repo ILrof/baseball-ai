@@ -34,34 +34,37 @@ def upload_video():
         cap = cv2.VideoCapture(temp_path)
         frame_count = 0
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                break
+       while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret or frame is None:
+            break
 
-            frame_count += 1
-            if frame_count % 3 != 0:
-                continue
+        frame_count += 1
+        if frame_count % 3 != 0:
+            continue
 
-            h, w, _ = frame.shape
-            frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
+        # スマホの縦動画（回転フラグ付き）に対応するための処理
+        # 映像が横倒しになっている場合に、正しい縦向きに回転させます
+        h, w = frame.shape[:2]
+        if h < w:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            h, w = frame.shape[:2]
 
-            image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-            results = pose.process(image_rgb)
+        frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
+        image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+        results = pose.process(image_rgb)
 
-            if results.pose_landmarks:
-                landmarks = results.pose_landmarks.landmark
-                left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
-                right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
-                center_hip = (left_hip + right_hip) / 2.0
-                
-                current_rate = np.clip(center_hip * 100, 30, 95)
-                rates.append(round(float(current_rate), 1))
+        if results.pose_landmarks:
+            landmarks = results.pose_landmarks.landmark
+            left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
+            right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
+            center_hip = (left_hip + right_hip) / 2.0
 
-        cap.release()
-        pose.close()
-    except Exception:
-        pass
+            current_rate = np.clip(center_hip * 100, 30, 95)
+            rates.append(round(float(current_rate), 1))
+
+    cap.release()
+    pose.close()
 
     if os.path.exists(temp_path):
         try: os.remove(temp_path)
