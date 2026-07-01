@@ -1,6 +1,5 @@
 Flask
 opencv-python-headless
-numpy
 mediapipe
-google-genai
-gunicorn
+numpy
+google-generativeai
