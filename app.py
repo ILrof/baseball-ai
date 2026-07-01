@@ -33,35 +33,37 @@ def upload_video():
         
         cap = cv2.VideoCapture(temp_path)
         frame_count = 0
+        rates = []
 
-       while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret or frame is None:
-            break
+    # MediaPipeの初期化
+    with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                break
 
-        frame_count += 1
-        if frame_count % 3 != 0:
-            continue
+            frame_count += 1
+            if frame_count % 3 != 0:
+                continue
 
-        # スマホの縦動画（回転フラグ付き）に対応するための処理
-        # 映像が横倒しになっている場合に、正しい縦向きに回転させます
-        h, w = frame.shape[:2]
-        if h < w:
-            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            # スマホの縦動画（回転フラグ付き）に対応するための処理
             h, w = frame.shape[:2]
+            if h < w:
+                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                h, w = frame.shape[:2]
 
-        frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
-        image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-        results = pose.process(image_rgb)
+            frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
+            image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+            results = pose.process(image_rgb)
 
-        if results.pose_landmarks:
-            landmarks = results.pose_landmarks.landmark
-            left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
-            right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
-            center_hip = (left_hip + right_hip) / 2.0
+            if results.pose_landmarks:
+                landmarks = results.pose_landmarks.landmark
+                left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
+                right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
+                center_hip = (left_hip + right_hip) / 2.0
 
-            current_rate = np.clip(center_hip * 100, 30, 95)
-            rates.append(round(float(current_rate), 1))
+                current_rate = np.clip(center_hip * 100, 30, 95)
+                rates.append(round(float(current_rate), 1))
 
     cap.release()
     pose.close()
