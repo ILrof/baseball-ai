@@ -3,7 +3,7 @@ import tempfile
 import cv2
 import numpy as np
 from flask import Flask, request, jsonify, render_template
-from google import genai
+import google.generativeai as genai
 
 app = Flask(__name__)
 
@@ -118,11 +118,9 @@ def upload_video():
     """
 
     try:
-        client = genai.Client(api_key=GOOGLE_API_KEY)
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
+        genai.configure(api_key=GOOGLE_API_KEY)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
         ai_output = response.text if response.text else "解析完了しました。"
     except Exception:
         ai_output = f"""
