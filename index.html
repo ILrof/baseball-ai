@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BaseBall AI Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Noto Sans JP', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #06b6d4;
+            margin-bottom: 30px;
+        }
+
+        .upload-section {
+            background: #1e293b;
+            border: 2px dashed #06b6d4;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] { display: none; }
+        .file-label {
+            background: #00f2fe;
+            color: #0f172a;
+            padding: 14px 32px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+            font-size: 1.1rem;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(90deg, #ff7e5f, #feb47b);
+            color: white;
+            border: none;
+            padding: 16px 48px;
+            border-radius: 30px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 25px;
+            box-shadow: 0 0 15px rgba(254, 180, 123, 0.4);
+            display: inline-block;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            color: #feb47b;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(254, 180, 123, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(254, 180, 123, 0.3);
+        }
+
+        /* 下部結果エリア（完全縦並びのストレート構成） */
+        #resultSection {
+            display: none;
+            background-color: #111827;
+            border-radius: 16px;
+            padding: 25px;
+            margin-top: 30px;
+            border: 1px solid #1f2937;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .result-title {
+            font-size: 1.4rem;
+            color: #00f2fe;
+            margin-top: 0;
+            margin-bottom: 25px;
+            border-left: 5px solid #00f2fe;
+            padding-left: 10px;
+        }
+
+        .card {
+            background-color: #1e293b;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #334155;
+            margin-bottom: 20px;
+        }
+
+        .weight-card {
+            border-left: 6px solid #ef4444;
+            text-align: center;
+        }
+
+        .weight-card h2 { margin: 0; color: #f8fafc; font-size: 1.2rem; }
+        .weight-card p { color: #94a3b8; font-size: 0.9rem; margin: 5px 0 15px 0; }
+        .weight-value { font-size: 4.5rem; font-weight: bold; color: #f59e0b; margin: 5px 0; }
+
+        /* AIアドバイス項目（横いっぱいに広く見せる） */
+        .advice-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .advice-item {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #00f2fe;
+            line-height: 1.7;
+        }
+
+        .advice-item.error-mode {
+            border-left: 4px solid #ef4444;
+            background: #271c1c;
+        }
+
+        .advice-item h3 { margin-top: 0; margin-bottom: 10px; color: #00f2fe; font-size: 1.1rem; }
+        .advice-item.error-mode h3 { color: #ef4444; font-size: 1.2rem; }
+
+        /* 動画 ＆ グラフのコンテナ（横並びで並列に見せる） */
+        .visual-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .visual-grid { grid-template-columns: 1fr; }
+        }
+
+        video { width: 100%; border-radius: 8px; background: #000; }
+
+        .chart-card {
+            background-color: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚾ BaseBall AI Analyzer</h1>
+
+    <div class="upload-section">
+        <p id="fileName" style="font-size: 1.1rem; margin-bottom: 20px;">動画ファイルを選択してください</p>
+        <label class="file-label">
+            動画を選択する
+            <input type="file" id="videoInput" accept="video/*">
+        </label>
+        <br>
+        <button class="analyze-btn" id="analyzeBtn">解析を開始する 🚀</button>
+        <div id="loading">解析中です。この作業には数十秒かかる場合があります。</div>
+    </div>
+
+    <div id="resultSection">
+        <h2 class="result-title">フォーム解析結果レポート</h2>
+        
+        <div class="card weight-card">
+            <h2>インパクト時の前足体重移動率</h2>
+            <p>(50%が中心。75%以上は突っ込み気味)</p>
+            <div class="weight-value"><span id="weightRate">--</span>%</div>
+        </div>
+
+        <div id="aiOutput" class="advice-container"></div>
+
+        <div class="visual-grid" id="visualGrid">
+            <div class="card" style="grid-column: span 2; text-align: center;" id="videoCard">
+                <h3 style="font-size: 1rem; color: #94a3b8; margin-top:0; text-align:left;">🎥 スイングプレビュー</h3>
+                <video id="videoPreview" controls></video>
+            </div>
+
+            <div class="chart-card" id="ratioCard">
+                <h3 style="font-size: 1rem; color: #f59e0b; margin: 0 0 15px 0;">📊 左右重心比率の推移 (前足 vs 軸足)</h3>
+                <div class="chart-container">
+                    <canvas id="ratioChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card" id="trajectoryCard">
+                <h3 style="font-size: 1rem; color: #00f2fe; margin: 0 0 15px 0;">📈 重心移動の軌跡 (横ブレ確認)</h3>
+                <div class="chart-container">
+                    <canvas id="trajectoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const videoInput = document.getElementById('videoInput');
+    const videoPreview = document.getElementById('videoPreview');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const loading = document.getElementById('loading');
+    const resultSection = document.getElementById('resultSection');
+    const weightRateSpan = document.getElementById('weightRate');
+    const aiOutputDiv = document.getElementById('aiOutput');
+    const fileNameDisplay = document.getElementById('fileName');
+    const visualGrid = document.getElementById('visualGrid');
+
+    let ratioChartInstance = null;
+    let trajectoryChartInstance = null;
+
+    videoInput.addEventListener('change', () => {
+        if (videoInput.files.length > 0) {
+            const file = videoInput.files[0];
+            fileNameDisplay.innerText = `選択された動画: ${file.name}`;
+            videoPreview.src = URL.createObjectURL(file);
+            resultSection.style.display = 'none';
+        }
+    });
+
+    analyzeBtn.addEventListener('click', async () => {
+        if (videoInput.files.length === 0) {
+            alert('動画を選択してください。');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('video', videoInput.files[0]);
+
+        loading.style.display = 'block';
+        resultSection.style.display = 'none';
+
+        try {
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const data = await response.json();
+
+            weightRateSpan.innerText = data.weight_rate;
+            aiOutputDiv.innerHTML = data.ai_data;
+
+            if (data.weight_rate === "測定不能") {
+                // エラー時はグラフエリア自体を隠す
+                document.getElementById('ratioCard').style.display = 'none';
+                document.getElementById('trajectoryCard').style.display = 'none';
+                document.getElementById('videoCard').style.gridColumn = 'span 1';
+            } else {
+                document.getElementById('ratioCard').style.display = 'block';
+                document.getElementById('trajectoryCard').style.display = 'block';
+                document.getElementById('videoCard').style.gridColumn = 'span 2';
+                
+                // 📊 グラフ生成
+                renderCharts(data.chart_data);
+            }
+
+            resultSection.style.display = 'block';
+
+        } catch (error) {
+            weightRateSpan.innerText = "エラー";
+            aiOutputDiv.innerHTML = '<div class="advice-item error-mode"><h3>⚠️ 通信エラー</h3><p>サーバーとの通信に失敗しました。</p></div>';
+            resultSection.style.display = 'block';
+        } finally {
+            loading.style.display = 'none';
+        }
+    });
+
+    function renderCharts(chartData) {
+        if (!chartData || chartData.length === 0) return;
+
+        if (ratioChartInstance) ratioChartInstance.destroy();
+        if (trajectoryChartInstance) trajectoryChartInstance.destroy();
+
+        const labels = chartData.map((_, index) => `${index + 1}F`);
+        const frontFootData = chartData;
+        const backFootData = chartData.map(val => 100 - val);
+
+        // 1. 左右重心比率グラフ
+        const ctxRatio = document.getElementById('ratioChart').getContext('2d');
+        ratioChartInstance = new Chart(ctxRatio, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: '前足体重 (%)', data: frontFootData, borderColor: '#f59e0b', backgroundColor: 'transparent', tension: 0.3, borderWidth: 3 },
+                    { label: '軸足体重 (%)', data: backFootData, borderColor: '#94a3b8', backgroundColor: 'transparent', tension: 0.3, borderWidth: 2, borderDash: [5, 5] }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { grid: { color: '#334155' }, ticks: { display: false } },
+                    y: { min: 0, max: 100, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+
+        // 2. 重心移動の軌跡グラフ
+        const ctxTrajectory = document.getElementById('trajectoryChart').getContext('2d');
+        trajectoryChartInstance = new Chart(ctxTrajectory, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '重心のブレ（左 ← → 右）',
+                    data: frontFootData,
+                    borderColor: '#00f2fe',
+                    backgroundColor: 'rgba(0, 242, 254, 0.05)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { grid: { color: '#334155' }, ticks: { display: false } },
+                    y: { min: 20, max: 100, grid: { color: '#334155' }, ticks: { display: false } }
+                }
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
