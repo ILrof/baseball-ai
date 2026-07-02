@@ -7,7 +7,6 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# 環境変数からAPIキーを取得
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 @app.route('/')
@@ -23,7 +22,6 @@ def upload_video():
     if file.filename == '':
         return jsonify({"weight_rate": "測定不能", "ai_data": "ファイル名が空です。", "chart_data": []})
 
-    # 一時保存用のパスを作成
     temp_dir = tempfile.gettempdir()
     temp_path = os.path.join(temp_dir, file.filename)
     file.save(temp_path)
@@ -32,7 +30,6 @@ def upload_video():
     frame_count = 0
     rates = []
 
-    # 🎥 動画解析（MediaPipe）
     try:
         import mediapipe as mp
         mp_pose = mp.solutions.pose
@@ -47,28 +44,25 @@ def upload_video():
                 if frame_count % 3 != 0:
                     continue
 
-                # 💡 元々縦長の動画なので回転処理は行わず、そのままサイズを取得します
                 h, w = frame.shape[:2]
-
                 frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
                 image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
                 results = pose.process(image_rgb)
-　　　　　　　　　if results.pose_landmarks:
+
+                if results.pose_landmarks:
                     landmarks = results.pose_landmarks.landmark
-                    # 前足（左足ヒップ）と軸足（右足ヒップ）の座標を取得
                     left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
                     right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
                     
-                    # 軸足から前足への移動割合を、立ち位置に依存しない形で計算（100倍してパーセント化）
-                    # スイングが進むにつれて数値が綺麗に上昇するようになります
                     hip_distance = abs(right_hip - left_hip) if abs(right_hip - left_hip) > 0.01 else 0.01
                     current_rate = np.clip(((right_hip - left_hip) / hip_distance) * 100, 30, 95)
                     rates.append(round(float(current_rate), 1))
 
     except Exception as e:
         print(f"Error during video processing: {e}")
-        if cap.isOpened():
-            cap.release()
+
+    if cap.isOpened():
+        cap.release()
 
     if os.path.exists(temp_path):
         try:
@@ -76,7 +70,6 @@ def upload_video():
         except Exception:
             pass
 
-    # 🚨 骨格が検出できなかった場合
     if len(rates) == 0:
         error_html = """
         <div class="advice-item error-mode">
@@ -97,7 +90,6 @@ def upload_video():
 
     max_weight_rate = round(max(rates), 1)
 
-    # 🧠 AIへの指示書
     prompt = f"""
     あなたは野球の動作解析の専門家です。
     解析データである「インパクト時の前足体重移動率: {max_weight_rate}%」に基づき、客観的かつ具体的なバッティングアドバイスを作成してください。
