@@ -47,7 +47,9 @@ def upload_video():
                 if frame_count % 3 != 0:
                     continue
 
+                # 💡 元々縦長の動画なので回転処理は行わず、そのままサイズを取得します
                 h, w = frame.shape[:2]
+
                 frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
                 image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
                 results = pose.process(image_rgb)
