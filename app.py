@@ -47,12 +47,7 @@ def upload_video():
                 if frame_count % 3 != 0:
                     continue
 
-                # スマホの縦動画（回転フラグ付き）に対応するための処理
                 h, w = frame.shape[:2]
-                if h < w:
-                    frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-                    h, w = frame.shape[:2]
-
                 frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
                 image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
                 results = pose.process(image_rgb)
