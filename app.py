@@ -53,17 +53,17 @@ def upload_video():
                 frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
                 image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
                 results = pose.process(image_rgb)
-
-                if results.pose_landmarks:
+　　　　　　　　　if results.pose_landmarks:
                     landmarks = results.pose_landmarks.landmark
+                    # 前足（左足ヒップ）と軸足（右足ヒップ）の座標を取得
                     left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
                     right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
-                    center_hip = (left_hip + right_hip) / 2.0
-
-                    current_rate = np.clip(center_hip * 100, 30, 95)
+                    
+                    # 軸足から前足への移動割合を、立ち位置に依存しない形で計算（100倍してパーセント化）
+                    # スイングが進むにつれて数値が綺麗に上昇するようになります
+                    hip_distance = abs(right_hip - left_hip) if abs(right_hip - left_hip) > 0.01 else 0.01
+                    current_rate = np.clip(((right_hip - left_hip) / hip_distance) * 100, 30, 95)
                     rates.append(round(float(current_rate), 1))
-
-        cap.release()
 
     except Exception as e:
         print(f"Error during video processing: {e}")
