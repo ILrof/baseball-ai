@@ -41,12 +41,13 @@ def upload_video():
                     break
 
                 frame_count += 1
-                if frame_count % 3 != 0:
+                if frame_count % 6 != 0:
                     continue
 
                 h, w = frame.shape[:2]
-                frame_resized = cv2.resize(frame, (int(w/2), int(h/2)))
+                frame_resized = cv2.resize(frame, (int(w/4), int(h/4)))
                 image_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+                
                 results = pose.process(image_rgb)
 
                 if results.pose_landmarks:
@@ -54,9 +55,8 @@ def upload_video():
                     left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
                     right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
                     
-                    hip_distance = abs(right_hip - left_hip) if abs(right_hip - left_hip) > 0.01 else 0.01
-                    current_rate = np.clip(((right_hip - left_hip) / hip_distance) * 100, 30, 95)
-                    rates.append(round(float(current_rate), 1))
+                    center_hip_x = (left_hip + right_hip) / 2.0
+                    rates.append(round(float(center_hip_x), 4))
 
     except Exception as e:
         print(f"Error during video processing: {e}")
@@ -90,6 +90,22 @@ def upload_video():
 
     max_weight_rate = round(max(rates), 1)
 
+    start_pos = rates[0]
+    end_pos = rates[-1]
+    
+    processed_rates = []
+    for r in rates:
+        if end_pos > start_pos:
+            move_ratio = (r - min(rates)) / (max(rates) - min(rates) if max(rates) != min(rates) else 1)
+        else:
+            move_ratio = (max(rates) - r) / (max(rates) - min(rates) if max(rates) != min(rates) else 1)
+        
+        current_rate = np.clip(30 + (move_ratio * 55), 30, 95)
+        processed_rates.append(round(float(current_rate), 1))
+        
+    rates = processed_rates
+    max_weight_rate = round(max(rates), 1)
+
     prompt = f"""
     あなたは野球の動作解析の専門家です。
     解析データである「インパクト時の前足体重移動率: {max_weight_rate}%」に基づき、客観的かつ具体的なバッティングアドバイスを作成してください。
@@ -115,7 +131,7 @@ def upload_video():
         ai_output = f"""
         <div class="advice-item"><h3>こうもく1: 【ここが素晴らしい！】</h3><p>前足体重移動率は {max_weight_rate}% となっています。</p></div>
         <div class="advice-item"><h3>こうもく2: 【次への課題とメカニズム】</h3><p>インパクト時の軸のブレが少なく、安定した姿勢を維持できています。</p></div>
-        <div class="advice-item"><h3>こうもく3: 【おすすめ練習法】</h3><p>下半身主導の感覚をさらに強化するため、ステップ幅の安定化を意識しましょう。</p></div>
+        <div class="advice-item"><h3>こうもく3: 【おすすめ練習法】</h3><p>下半身主導 of 感覚をさらに強化するため、ステップ幅の安定化を意識しましょう。</p></div>
         <div class="advice-item"><h3>こうもく4: 【練習のポイント】</h3><p>踏み出す足の着地位置が毎回一定になるよう意識して練習を行います。</p></div>
         """
 
