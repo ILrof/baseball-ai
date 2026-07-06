@@ -64,8 +64,18 @@ def upload_video():
                     rates.append(round(float(center_hip_x), 4))
 
     except Exception as e:
-        error_message = f"システムエラーが発生しました: {str(e)}"
+        error_str = str(e)
         print(f"Error during video processing: {e}")
+        
+        # エラー原因ごとに日本語メッセージを切り分ける
+        if "timeout" in error_str.lower() or "connection" in error_str.lower():
+            error_message = "サーバーとの通信がタイムアウトしました。動画の長さを1〜2秒程度にするか、LINE等で圧縮して容量を軽くしてから再度お試しください。"
+        elif "video" in error_str.lower() or "open" in error_str.lower() or "codec" in error_str.lower():
+            error_message = "動画ファイルを正しく読み込めませんでした。撮影した動画の形式やファイルが壊れていないか確認してください。"
+        elif "empty" in error_str.lower() or "index out of range" in error_str.lower():
+            error_message = "動画から野球のフォーム（骨格）を検出できませんでした。全身が映るようにアングルや明るさを確認してください。"
+        else:
+            error_message = f"解析中にエラーが発生しました。理由: {error_str} (動画を短くしたり圧縮すると解決する場合があります)"
 
     if cap.isOpened():
         cap.release()
