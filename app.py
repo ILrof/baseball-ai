@@ -106,7 +106,8 @@ def upload_video():
         processed_rates.append(round(float(current_rate), 1))
         
     rates = processed_rates
-    max_weight_rate = round(max(rates), 1)
+        # 💡 動画の60%の時点（インパクトの瞬間）の数値をピンポイントで取得します！
+        max_weight_rate = rates[int(len(rates) * 0.6)] if len(rates) > 5 else rates[0]
 
     prompt = f"""
     あなたは野球の動作解析 of 専門家です。
