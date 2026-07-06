@@ -150,10 +150,11 @@ def upload_video():
     clean_ai_data = str(ai_output).replace('\n', ' ').replace('\r', ' ')
 
     return jsonify({
-        "weight_rate": float(max_weight_rate),
-        "ai_data": clean_ai_data,
-        "chart_data": rates
-    })
+    "weight_rate": f"{int(max_pos)}",
+    "ai_data": ai_advice,
+    "chart_data": chart_data
+　　})
+    
 
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
