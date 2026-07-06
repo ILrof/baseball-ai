@@ -1,15 +1,17 @@
-# 1. 💡スリム版をやめ、すべての部品が最初から全部入りになっているフル版Python3.11を使う
+# 1. 安定したPython 3.11のフルパッケージ環境
 FROM python:3.11
 
-# 2. 最初から全部入っているため、apt-getでのややこしいインストール作業は一切不要！
+# 2. OpenCVとMediaPipeの起動に必要なグラフィックシステム部品を確実にインストール
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # 3. フォルダ準備とファイルコピー
 WORKDIR /app
 COPY . /app
 
-# 4. パッケージのインストール（確実に動く組み合わせ）
+# 4. パッケージのインストール
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
