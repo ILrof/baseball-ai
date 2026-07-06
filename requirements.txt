@@ -1,6 +1,6 @@
 Flask
 opencv-python-headless
-mediapipe
+mediapipe==0.10.14
 numpy==1.26.4
 google-generativeai
 gunicorn
