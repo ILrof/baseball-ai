@@ -11,6 +11,6 @@ COPY . /app
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-# 💡Renderの指定ポート「10000」に統一します
+# 💡Renderの標準ポートである「10000」で確実に統一して起動させます
 EXPOSE 10000
 CMD ["gunicorn", "--bind", "0.0.0.0:10000", "app:app"]
