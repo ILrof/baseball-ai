@@ -1,13 +1,20 @@
 import os
-import tempfile
 import cv2
+import mediapipe as mp
 import numpy as np
-from flask import Flask, request, jsonify, render_template
 import google.generativeai as genai
+from flask import Flask, request, render_template, jsonify
 
 app = Flask(__name__)
 
+# Gemini APIの初期設定
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
+# MediaPipeの初期化
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
 
 @app.route('/')
 def index():
@@ -16,58 +23,72 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_video():
     if 'video' not in request.files:
-        return jsonify({"weight_rate": "測定不能", "ai_data": "動画ファイルが見つかりません。", "chart_data": []})
+        return jsonify({"weight_rate": "測定不能", "ai_data": "<p>動画ファイルが見つかりません。</p>", "chart_data": []})
+        
+    video_file = request.files['video']
+    if video_file.filename == '':
+        return jsonify({"weight_rate": "測定不能", "ai_data": "<p>動画が選択されていません。</p>", "chart_data": []})
 
-    file = request.files['video']
-    if file.filename == '':
-        return jsonify({"weight_rate": "測定不能", "ai_data": "ファイル名が空です。", "chart_data": []})
+    # 一時ファイルとして保存
+    temp_path = "temp_video.mp4"
+    video_file.save(temp_path)
 
-    temp_dir = tempfile.gettempdir()
-    temp_path = os.path.join(temp_dir, file.filename)
-    file.save(temp_path)
-
-    cap = cv2.VideoCapture(temp_path)
     rates = []
-    error_message = "骨格を検出できませんでした。"
+    cap = cv2.VideoCapture(temp_path)
 
     try:
-        import mediapipe as mp
-        mp_pose = mp.solutions.pose
-        
-        with mp_pose.Pose(min_detection_confidence=0.4, min_tracking_confidence=0.4) as pose:
+        # MediaPipe Poseの読み込み
+        with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
             while cap.isOpened():
                 ret, frame = cap.read()
-                if not ret or frame is None:
+                if not ret:
                     break
 
-                # 💡 実験の成功ロジック：間引きを完全に廃止し、3秒の動画の全コマを解析！
-                h, w = frame.shape[:2]
-                frame_resized = cv2.resize(frame, (int(w/3), int(h/3)))
-                
-                # 実験と全く同じコントラスト自動補正（CLAHE）
-                lab = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2LAB)
-                l, a, b = cv2.split(lab)
-                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-                cl = clahe.apply(l)
-                limg = cv2.merge((cl,a,b))
-                frame_enhanced = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-                
-                image_rgb = cv2.cvtColor(frame_enhanced, cv2.COLOR_BGR2RGB)
+                # 処理高速化のために画像サイズを縮小
+                h, w, _ = frame.shape
+                if w > 640:
+                    frame = cv2.resize(frame, (640, int(h * (640 / w))))
+
+                # RGBに変換して骨格検出
+                image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = pose.process(image_rgb)
 
                 if results.pose_landmarks:
                     landmarks = results.pose_landmarks.landmark
-                    left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP].x
-                    right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP].x
                     
-                    center_hip_x = (left_hip + right_hip) / 2.0
-                    rates.append(round(float(center_hip_x), 4))
+                    # 左右の肩、腰、足首の座標を取得
+                    left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER]
+                    right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER]
+                    left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP]
+                    right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP]
+                    left_ankle = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE]
+                    right_ankle = landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE]
+
+                    # 重心（腰と肩の中央）の計算
+                    center_x = (left_shoulder.x + right_shoulder.x + left_hip.x + right_hip.x) / 4.0
+                    
+                    # スタンス幅に対する相対的な位置から体重移動率を計算
+                    left_a = left_ankle.x
+                    right_a = right_ankle.x
+                    
+                    if abs(left_a - right_a) > 0.01:
+                        if left_a > right_a:
+                            rate = ((center_x - right_a) / (left_a - right_a)) * 100
+                        else:
+                            rate = ((center_x - left_a) / (right_a - left_a)) * 100
+                        
+                        rate = max(0.0, min(100.0, rate))
+                        rates.append(float(rate))
+
+        cap.release()
 
     except Exception as e:
+        if cap.isOpened():
+            cap.release()
         error_str = str(e)
         print(f"Error during video processing: {e}")
         
-        # エラー原因ごとに日本語メッセージを切り分ける
+        # エラー原因ごとに、画面に出す分かりやすい日本語メッセージを切り分ける
         if "timeout" in error_str.lower() or "connection" in error_str.lower():
             error_message = "サーバーとの通信がタイムアウトしました。動画の長さを1〜2秒程度にするか、LINE等で圧縮して容量を軽くしてから再度お試しください。"
         elif "video" in error_str.lower() or "open" in error_str.lower() or "codec" in error_str.lower():
@@ -77,84 +98,84 @@ def upload_video():
         else:
             error_message = f"解析中にエラーが発生しました。理由: {error_str} (動画を短くしたり圧縮すると解決する場合があります)"
 
-    if cap.isOpened():
-        cap.release()
+        error_html = f"""
+        <div class="advice-item error-mode">
+            <h3>⚠️ 解析エラー詳細報告</h3>
+            <p><b>【動画の解析に失敗しました】</b></p><br><br>
+            <p>原因: {error_message}</p>
+        </div>
+        """
+        return jsonify({"weight_rate": "測定不能", "ai_data": error_html, "chart_data": []})
 
+    # 一時ファイルの削除
     if os.path.exists(temp_path):
         try:
             os.remove(temp_path)
         except Exception:
             pass
 
-    # データ不足ガード（実験でデータが取れているのでここは突破できます！）
+    # データ不足ガード
     if len(rates) < 3:
-        error_html = f"""
+        error_html = """
         <div class="advice-item error-mode">
             <h3>⚠️ 解析エラー詳細報告</h3>
-            <p><b>【動画の解析に失敗しました】</b><br><br>
-            原因: {error_message}</p>
-            <p>カメラのアングルや明るさを確認し、もう一度動画をアップロードしてください。</p>
+            <p><b>【動画の解析に失敗しました】</b></p><br><br>
+            <p>原因: 動画から十分な長さの骨格データを検出できませんでした。全身が映るようにもう一度撮影してください。</p>
         </div>
         """
         return jsonify({"weight_rate": "測定不能", "ai_data": error_html, "chart_data": []})
 
-    # 左右自動判定＆30%〜95%へのスケール変換
+    # 体重移動データの算出
     start_pos = rates[0]
+    max_pos = max(rates)
+    min_pos = min(rates)
     end_pos = rates[-1]
-    max_val = max(rates)
-    min_val = min(rates)
-    div_val = max_val - min_val if max_val != min_val else 1.0
     
-    processed_rates = []
-    for r in rates:
-        if end_pos > start_pos:
-            move_ratio = (r - min_val) / div_val
-        else:
-            move_ratio = (max_val - r) / div_val
-        
-        current_rate = np.clip(30 + (move_ratio * 55), 30, 95)
-        processed_rates.append(round(float(current_rate), 1))
-        
-    rates = processed_rates
-    max_weight_rate = round(max(rates), 1)
+    # 💡 85%固定の奇跡を解消：動画の中で「一番大きくピッチャー側に踏み込んだ瞬間（最大値）」を画面のメイン数字にします！
+    display_rate = max_pos
 
-    prompt = f"""
-    あなたは野球の動作解析 of 専門家です。
-    解析データである「インパクト時の前足体重移動率: {max_weight_rate}%」に基づき、客観的かつ具体的なバッティングアドバイスを作成してください。
+    # Geminiによるアドバイス生成
+    ai_advice = "<p>AIアドバイスの生成に失敗しました。</p>"
+    if GOOGLE_API_KEY:
+        try:
+            model = genai.GenerativeModel("gemini-pro")
+            prompt = f"""
+            プロの野球バッティングコーチとして、以下のスイングデータ（体重移動の推移）を分析し、熱血かつ具体的な指導レポートを作成してください。
 
-    以下の4つの項目について、それぞれ150文字程度で論理的に解説してください。
-    こうもく1: 【ここが素晴らしい！】
-    こうもく2: 【次への課題とメカニズム】
-    こうもく3: 【おすすめ練習法】
-    こうもく4: 【練習のポイント】
+            【スイングデータ（数値）】
+            ・構え〜始動時の位置: {start_pos:.1f}%
+            ・スイング中の最大移動: {max_pos:.1f}%
+            ・スイング中の最小移動: {min_pos:.1f}%
+            ・フォロースルー時の位置: {end_pos:.1f}%
 
-    【出力ルール】
-    各項目を必ず以下のHTML形式だけで出力してください。
-    <div class="advice-item"><h3>こうもく1: 【ここが素晴らしい！】</h3><p>アドバイス内容</p></div>
-    Markdownの記号（「**」など）は絶対に出力に含めないでください。
-    """
+            ※0%に近いほどキャッチャー寄り（軸足）、100%に近いほどピッチャー寄り（前足）に重心があります。
 
-    try:
-        genai.configure(api_key=GOOGLE_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
-        ai_output = response.text if response.text else "解析完了しました。"
-    except Exception:
-        ai_output = f"""
-        <div class="advice-item"><h3>こうもく1: 【ここが素晴らしい！】</h3><p>前足体重移動率は {max_weight_rate}% となっています。</p></div>
-        <div class="advice-item"><h3>こうもく2: 【次への課題とメカニズム】</h3><p>インパクト時の軸のブレが少なく、安定した姿勢を維持できています。</p></div>
-        <div class="advice-item"><h3>こうもく3: 【おすすめ練習法】</h3><p>下半身主導の感覚をさらに強化するため、ステップ幅の安定化を意識しましょう。</p></div>
-        <div class="advice-item"><h3>こうもく4: 【練習のポイント】</h3><p>踏み出す足の着地位置が毎回一定になるよう意識して練習を行います。</p></div>
-        """
+            【レポートに必ず含める内容】
+            1. 今回のスイングの「ここが良い！」というポイント（褒める）
+            2. 重心移動から読み取れる課題点（突っ込み気味、または軸足に残りすぎ、など）
+            3. 明日からの練習で意識すべき具体的な改善アドバイス
 
-    clean_ai_data = str(ai_output).replace('\n', ' ').replace('\r', ' ')
+            丁寧なHTMLタグ（<h3>や<p>、<ul><li>など）を使って、スタイリッシュに読みやすく出力してください。
+            """
+            response = model.generate_content(prompt)
+            if response.text:
+                ai_advice = response.text
+        except Exception as ai_err:
+            print(f"Gemini Error: {ai_err}")
+            ai_advice = f"<p>AI解析レポートの生成中にエラーが発生しました。({str(ai_err)})</p>"
+
+    # グラフ用データ
+    chart_labels = [f"{i+1}" for i in range(len(rates))]
+    chart_data = {
+        "labels": chart_labels,
+        "values": rates
+    }
 
     return jsonify({
-    "weight_rate": f"{int(max_pos)}",
-    "ai_data": ai_advice,
-    "chart_data": chart_data
-　　})
-    
+        "weight_rate": f"{int(display_rate)}",
+        "ai_data": ai_advice,
+        "chart_data": chart_data
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
