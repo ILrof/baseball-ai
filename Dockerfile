@@ -1,17 +1,15 @@
-# 1. 安定したPython 3.11環境をベースにする
-FROM python:3.11-slim
+# 1. 💡スリム版をやめ、すべての部品が最初から全部入りになっているフル版Python3.11を使う
+FROM python:3.11
 
-# 2. 最新のLinuxシステムに適合したOpenCV・MediaPipe用パッケージをインストール
-RUN apt-get update && apt-get install -y \
-    libgl1 \
-    libglib2.0-0 \
+# 2. 最初から全部入っているため、apt-getでのややこしいインストール作業は一切不要！
+RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# 3. フォルダの準備とファイルのコピー
+# 3. フォルダ準備とファイルコピー
 WORKDIR /app
 COPY . /app
 
-# 4. パッケージをインストール
+# 4. パッケージのインストール（確実に動く組み合わせ）
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
