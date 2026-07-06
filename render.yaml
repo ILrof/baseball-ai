@@ -2,4 +2,3 @@ services:
   - type: web
     name: baseball-ai-v3
     runtime: docker
-    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
