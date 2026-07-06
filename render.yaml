@@ -1,5 +1,5 @@
 services:
   - type: web
-    name: baseball-ai-v2
+    name: baseball-ai-v3
     runtime: docker
-    plan: free
+    startCommand: gunicorn --bind 0.0.0.0:10000 app:app
