@@ -127,7 +127,7 @@ def upload_video():
 
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
         ai_output = response.text if response.text else "解析完了しました。"
     except Exception:
