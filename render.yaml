@@ -1,4 +1,5 @@
 services:
   - type: web
-    name: baseball-ai-v3
+    name: baseball-ai-v2
     runtime: docker
+    plan: free
