@@ -14,6 +14,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
+@app.route('/analyze', methods=['POST'])
 def upload_video():
     if 'video' not in request.files:
         return jsonify({"weight_rate": "測定不能", "ai_data": "動画ファイルが見つかりません。", "chart_data": []})
