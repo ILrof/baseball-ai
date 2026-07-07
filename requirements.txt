@@ -1,6 +1,6 @@
-Flask
+Flask==3.0.3
 opencv-python-headless
 mediapipe==0.10.14
 numpy==1.26.4
-google-generativeai
+google-generativeai>=0.5.4
 gunicorn
