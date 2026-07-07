@@ -13,7 +13,6 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 def index():
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
 @app.route('/analyze', methods=['POST'])
 def upload_video():
     if 'video' not in request.files:
