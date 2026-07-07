@@ -125,12 +125,25 @@ def upload_video():
     Markdownの記号（「**」など）は絶対に出力に含めないでください。
     """
 
-    try:
+try:
+        print("--- [LOG] AI解析スタート ---")
+        
+        print("--- [LOG] 129行目: APIキーを設定中... ---")
         genai.configure(api_key=GOOGLE_API_KEY)
+        
+        print("--- [LOG] 130行目: Geminiモデルを呼び出し中... ---")
         model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        print(f"--- [LOG] 131行目: AIに指示文を送信中... 送信データ: {max_weight_rate}% ---")
         response = model.generate_content(prompt)
+        
+        print("--- [LOG] 132行目: AIからの返答を受信成功！ ---")
         ai_output = response.text if response.text else "解析完了しました。"
-    except Exception:
+
+    except Exception as e:
+        # 💡 ここでエラーの「生の名前」をRenderのLog画面に強制的に表示させます！
+        print(f"❌❌❌ [LOG ERROR] AI接続でエラーが発生しました！原因: {str(e)} ❌❌❌")
+        
         ai_output = f"""
         <div class="advice-item"><h3>こうもく1: 【ここが素晴らしい！】</h3><p>前足体重移動率は {max_weight_rate}% となっています。</p></div>
         <div class="advice-item"><h3>こうもく2: 【次への課題とメカニズム】</h3><p>インパクト時の軸のブレが少なく、安定した姿勢を維持できています。</p></div>
