@@ -125,7 +125,7 @@ def upload_video():
     Markdownの記号（「**」など）は絶対に出力に含めないでください。
     """
 
-try:
+    try:
         print("--- [LOG] AI解析スタート ---")
         
         print("--- [LOG] 129行目: APIキーを設定中... ---")
