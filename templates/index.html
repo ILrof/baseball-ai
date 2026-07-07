@@ -255,7 +255,7 @@
         resultSection.style.display = 'none';
 
         try {
-            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const response = await fetch('/analyze', { method: 'POST', body: formData });
             const data = await response.json();
 
             weightRateSpan.innerText = data.weight_rate;
