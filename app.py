@@ -129,7 +129,7 @@ def upload_video():
         print("--- [LOG] AI解析スタート ---")
         
         print("--- [LOG] 129行目: APIキーを設定中... ---")
-        genai.configure(api_key=GOOGLE_API_KEY, api_version='v1')
+        genai.configure(api_key=GOOGLE_API_KEY)
         
         print("--- [LOG] 130行目: Geminiモデルを呼び出し中... ---")
         model=genai.GenerativeModel("gemini-pro")
