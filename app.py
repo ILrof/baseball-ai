@@ -132,9 +132,7 @@ def upload_video():
         genai.configure(api_key=GOOGLE_API_KEY)
         
         print("--- [LOG] 130行目: Geminiモデルを呼び出し中... ---")
-        model = genai.GenerativeModel(
-            model_name="models/gemini-1.5-flash"
-        )
+        model = genai.GenerativeModel("gemini-1.5-flash-latest")
         
         print(f"--- [LOG] 131行目: AIに指示文を送信中... 送信データ: {max_weight_rate}% ---")
         response = model.generate_content(prompt)
