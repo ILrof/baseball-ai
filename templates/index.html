@@ -167,10 +167,55 @@
             height: 200px;
             width: 100%;
         }
+        /* 👑 1. オープニング（スプラッシュ）画面のスタイル */
+        #splashSection {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0f172a; /* 背景色（暗い紺色） */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 1s ease, visibility 1s ease; /* スーッと消える設定 */
+        }
+
+        /* スーッと消える（フェードアウト）アニメーション */
+        #splashSection.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        /* ロゴ画像自体の表示スタイル */
+        .splash-logo {
+            max-width: 80%;
+            width: 400px;
+            height: auto;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 242, 254, 0.4);
+            animation: zoomIn 0.8s ease-out;
+        }
+
+        @keyframes zoomIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
-
+<!-- 👑 スーッと消えるオープニング画面 -->
+    <div id="splashSection">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="だけキング" class="splash-logo">
+    </div>
 <div class="container">
     <h1>⚾ BaseBall AI Analyzer</h1>
 
@@ -220,6 +265,12 @@
 </div>
 
 <script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const splash = document.getElementById('splashSection');
+        setTimeout(() => {
+            splash.classList.add('fade-out');
+        }, 2500);
+    });
     const videoInput = document.getElementById('videoInput');
     const videoPreview = document.getElementById('videoPreview');
     const analyzeBtn = document.getElementById('analyzeBtn');
